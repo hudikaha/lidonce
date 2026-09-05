@@ -46,8 +46,16 @@ open ~/Applications/LidOnce.app
 2つの`pmset`コマンドだけです。有効中にアプリが終了・異常終了した場合は、独立した
 監視プロセスが通常のスリープ設定へ戻します。
 
-`~/bin/lidonce`には`status`、`reset`、`open`があります。安全用の状態機械を
-迂回しないよう、CLI単独での有効化は意図的に実装していません。
+メニューバーの **Enable next lid cycle**、または次のコマンドを使用できます。
+
+```sh
+lidonce on       # 次の閉蓋・開蓋の一往復を有効化
+lidonce status   # off、armed、closedの状態表示
+lidonce off      # 直ちに解除して通常のスリープへ戻す
+lidonce open     # メニューバーアプリを起動
+```
+
+どちらもメニューバーアプリ内の同じ安全用状態機械を使用します。
 
 ## 安全上の注意
 

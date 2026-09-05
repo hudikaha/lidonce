@@ -46,9 +46,16 @@ The privilege installer allows only the exact `pmset` commands needed to turn
 `disablesleep` on and off. A separate guard process restores normal sleep if
 the app exits or crashes during an armed session.
 
-The CLI installed at `~/bin/lidonce` provides `status`, `reset`, and `open`.
-It intentionally cannot arm a session independently of the safety state
-machine in the menu-bar app.
+Use either the menu-bar item **Enable next lid cycle**, or the command line:
+
+```sh
+lidonce on       # enable the next close/open cycle
+lidonce status   # show off, armed, or closed
+lidonce off      # restore normal sleep immediately
+lidonce open     # launch the menu-bar app
+```
+
+Both interfaces use the same safety state machine in the menu-bar app.
 
 ## Safety
 

@@ -1,6 +1,11 @@
 import AppKit
 import Foundation
 
+let ipcDirectory = FileManager.default.homeDirectoryForCurrentUser
+  .appendingPathComponent("Library/Application Support/LidOnce")
+let commandURL = ipcDirectory.appendingPathComponent("command")
+let stateURL = ipcDirectory.appendingPathComponent("state")
+
 final class PowerController {
   enum PowerError: Error, CustomStringConvertible {
     case commandFailed(String)
@@ -51,13 +56,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var guardToken: URL?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    try? FileManager.default.createDirectory(at: ipcDirectory, withIntermediateDirectories: true)
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "LidOnce")
+    statusItem.button?.title = "L1"
     let menu = NSMenu()
     stateItem = NSMenuItem(title: "Sleep allowed", action: nil, keyEquivalent: "")
     stateItem.isEnabled = false
     menu.addItem(stateItem)
-    toggleItem = NSMenuItem(title: "Arm next lid cycle", action: #selector(toggle), keyEquivalent: "")
+    toggleItem = NSMenuItem(title: "Enable next lid cycle", action: #selector(toggle), keyEquivalent: "")
     toggleItem.target = self
     menu.addItem(toggleItem)
     menu.addItem(.separator())
@@ -72,25 +78,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     if machine.state != .off {
       disarm()
     }
+    try? FileManager.default.removeItem(at: stateURL)
   }
 
   @objc private func toggle() {
+    machine.state == .off ? turnOn() : turnOff()
+  }
+
+  private func turnOn() {
     do {
-      if machine.state == .off {
-        try power.setSleepDisabled(true)
-        try startCrashGuard()
-        machine.handle(.arm)
-      } else {
-        disarm()
-        machine.handle(.cancel)
-      }
+      try power.setSleepDisabled(true)
+      try startCrashGuard()
+      machine.handle(.arm)
       render()
     } catch {
       showError(error)
     }
   }
 
+  private func turnOff() {
+    disarm()
+    machine.handle(.cancel)
+    render()
+  }
+
   @objc private func checkLid() {
+    processCLICommand()
     guard machine.state != .off else { return }
     do {
       let closed = try power.isLidClosed()
@@ -110,17 +123,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func render() {
     switch machine.state {
     case .off:
-      statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "LidOnce off")
+      statusItem.button?.title = "L1"
+      statusItem.button?.toolTip = "LidOnce: sleep allowed"
       stateItem.title = "Sleep allowed"
-      toggleItem.title = "Arm next lid cycle"
+      toggleItem.title = "Enable next lid cycle"
     case .armed:
-      statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer.and.arrow.down", accessibilityDescription: "LidOnce armed")
+      statusItem.button?.title = "L1•"
+      statusItem.button?.toolTip = "LidOnce: enabled for next lid cycle"
       stateItem.title = "Armed — close the lid"
       toggleItem.title = "Cancel"
     case .closed:
-      statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer.trianglebadge.exclamationmark", accessibilityDescription: "LidOnce active")
+      statusItem.button?.title = "L1!"
+      statusItem.button?.toolTip = "LidOnce: keeping awake with lid closed"
       stateItem.title = "Active — opening the lid will reset"
       toggleItem.title = "Reset now"
+    }
+    try? (machine.state.rawValue + "\n").write(to: stateURL, atomically: true, encoding: .utf8)
+  }
+
+  private func processCLICommand() {
+    guard let command = try? String(contentsOf: commandURL, encoding: .utf8)
+      .trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+    try? FileManager.default.removeItem(at: commandURL)
+    if command == "on" && machine.state == .off {
+      turnOn()
+    } else if command == "off" && machine.state != .off {
+      turnOff()
     }
   }
 
