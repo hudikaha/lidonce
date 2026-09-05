@@ -57,8 +57,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     try? FileManager.default.createDirectory(at: ipcDirectory, withIntermediateDirectories: true)
-    statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    statusItem = NSStatusBar.system.statusItem(withLength: 48)
+    statusItem.autosaveName = "LidOnce"
+    statusItem.isVisible = true
+    statusItem.button?.image = nil
     statusItem.button?.title = "L1"
+    statusItem.button?.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
     let menu = NSMenu()
     stateItem = NSMenuItem(title: "Sleep allowed", action: nil, keyEquivalent: "")
     stateItem.isEnabled = false
