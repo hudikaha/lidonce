@@ -1,6 +1,6 @@
 # LidOnce
 
-[English（正本）](README.md) | **日本語訳（副本）**
+[English](README.md) | 日本語
 
 LidOnceは、MacBookを閉じたまま一回だけ処理を継続するための、小さなネイティブ
 macOSメニューバーアプリです。有効化して蓋を閉じると処理を継続し、次に蓋を開けた
@@ -49,6 +49,34 @@ open ~/Applications/LidOnce.app
 ```
 
 rootシェル全般や、制限のない`pmset`実行権限は与えません。
+
+## 配布とGatekeeper
+
+現在のソースビルドにはad-hocコード署名を使用しています。ローカルでビルドして動かす
+だけなら、有料のApple Developer証明書は必要ありません。ただし、Developer ID署名や
+Appleのnotarization（公証）は行っていません。
+
+GitHub ReleasesやWebサイトから完成済みアプリを配布し、利用者が警告を回避する操作なしで
+起動できるようにする標準的な方法は、Apple発行のDeveloper ID Application証明書で署名し、
+hardened runtimeを有効にして、Appleのnotarizationへ提出することです。Developer ID証明書
+の取得にはApple Developer Programへの加入が必要です。
+
+信頼できる未確認・未公証アプリであれば、利用者が「システム設定 > プライバシーと
+セキュリティ > このまま開く」で個別に許可することもできます。ただし、一般公開版で
+Gatekeeperの回避操作を利用者へ要求するのは望ましくありません。現在のように配布先の
+Macでソースからビルドすれば、ダウンロード済み完成アプリを配布物として実行する形には
+なりません。
+
+Homebrewで入る全実行ファイルにAppleのDeveloper ID署名があるわけではありません。
+formulaのbottleは、レビュー済みメタデータ、チェックサム、ビルド来歴の仕組みで保護
+されます。一方、公式Homebrew Caskで配布するGUIアプリは、利用者に回避操作を求めず
+HomebrewのGatekeeper検査を通る必要があります。
+
+参考資料: [Apple Developer ID](https://developer.apple.com/support/developer-id/)、
+[Appleのnotarization要件](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)、
+[Appleの「このまま開く」手順](https://support.apple.com/ja-jp/guide/mac-help/mh40616/mac)、
+[Homebrewのサプライチェーン・セキュリティ](https://docs.brew.sh/Supply-Chain-Security)、
+[Homebrew CaskのGatekeeper方針](https://docs.brew.sh/FAQ#why-was-a-cask-disabled-or-removed-after-a-macos-security-check)
 
 ## メニューバーでの操作
 

@@ -1,6 +1,6 @@
 # LidOnce
 
-**English (canonical documentation)** | [日本語訳](README_ja.md)
+English | [日本語](README_ja.md)
 
 LidOnce is a small native macOS menu-bar app that keeps a MacBook awake for
 one closed-lid session. Enable it, close the lid, and let a long-running task
@@ -50,6 +50,36 @@ sudoers rule permits only these two commands without another password prompt:
 ```
 
 No general root shell or unrestricted `pmset` access is granted.
+
+## Distribution and Gatekeeper
+
+The source build currently uses an ad-hoc code signature. It can be built and
+run locally without a paid Apple Developer certificate. It is not, however,
+Developer ID signed or notarized.
+
+For a prebuilt app downloaded from GitHub Releases or another website, the
+standard friction-free distribution path is to sign with an Apple-issued
+Developer ID Application certificate, enable hardened runtime, and submit the
+app to Apple's notarization service. Developer ID certificates require Apple
+Developer Program membership.
+
+macOS can allow a trusted user to open an unidentified or unnotarized app via
+**System Settings > Privacy & Security > Open Anyway**, but public releases
+should not require users to bypass Gatekeeper. Building LidOnce from source on
+the destination Mac avoids treating a downloaded prebuilt app as the release
+artifact.
+
+Homebrew does not imply that every installed executable has an Apple Developer
+ID signature. Formula bottles are protected by reviewed metadata, checksums,
+and build-provenance mechanisms. GUI apps distributed through official
+Homebrew Casks must pass Homebrew's Gatekeeper checks without asking users to
+bypass them.
+
+References: [Apple Developer ID](https://developer.apple.com/support/developer-id/),
+[Apple notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution),
+[Apple's Open Anyway procedure](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac),
+[Homebrew supply-chain security](https://docs.brew.sh/Supply-Chain-Security), and
+[Homebrew's Cask Gatekeeper policy](https://docs.brew.sh/FAQ#why-was-a-cask-disabled-or-removed-after-a-macos-security-check).
 
 ## Menu-bar operation
 
