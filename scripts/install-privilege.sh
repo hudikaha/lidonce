@@ -16,7 +16,10 @@ trap 'rm -f "$tmp"' EXIT HUP INT TERM
 /usr/sbin/visudo -cf "$tmp"
 echo "LidOnce will install this restricted rule:"
 cat "$tmp"
-/usr/bin/sudo /usr/bin/install -o root -g wheel -m 0440 "$tmp" /etc/sudoers.d/lidonce
-/usr/bin/sudo -k
+/usr/bin/osascript - "$tmp" <<'APPLESCRIPT'
+on run argv
+  set src to quoted form of item 1 of argv
+  do shell script "/usr/bin/install -o root -g wheel -m 0440 " & src & " /etc/sudoers.d/lidonce" with administrator privileges
+end run
+APPLESCRIPT
 echo "installed /etc/sudoers.d/lidonce"
-
