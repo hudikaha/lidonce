@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 app=build/LidOnce.app
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 /usr/bin/swiftc -O -framework AppKit \
-  Sources/LidOnce/StateMachine.swift Sources/LidOnce/main.swift \
+  -framework SwiftUI Sources/LidOnce/StateMachine.swift Sources/LidOnce/LidOnceApp.swift \
   -o "$app/Contents/MacOS/LidOnce"
 /usr/bin/swiftc -O -framework AppKit Sources/LidOnceCLI/main.swift -o build/lidonce
 cp Resources/Info.plist "$app/Contents/Info.plist"

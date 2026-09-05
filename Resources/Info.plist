@@ -7,7 +7,7 @@
   <key>CFBundleExecutable</key>
   <string>LidOnce</string>
   <key>CFBundleIdentifier</key>
-  <string>info.fujikawa.lidonce</string>
+  <string>com.github.hudikaha.lidonce</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>

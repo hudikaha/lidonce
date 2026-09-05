@@ -57,6 +57,13 @@ lidonce open     # launch the menu-bar app
 
 Both interfaces use the same safety state machine in the menu-bar app.
 
+### Menu-bar item is missing on macOS 26
+
+macOS may hide third-party items when the menu bar has no remaining display
+space, even though the app is enabled in System Settings and AppKit reports
+the item as visible. In **System Settings > Menu Bar**, turn off an unused
+system item such as Weather to make room for LidOnce.
+
 ## Safety
 
 Keeping a MacBook awake in a closed bag can cause heat buildup and battery
