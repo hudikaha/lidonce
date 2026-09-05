@@ -46,11 +46,24 @@ The privilege installer allows only the exact `pmset` commands needed to turn
 `disablesleep` on and off. A separate guard process restores normal sleep if
 the app exits or crashes during an armed session.
 
-Use either the menu-bar item **Enable next lid cycle**, or the command line:
+Click the menu-bar icon to enable or disable LidOnce. While it displays `ON`
+or `ON N`, another click within 0.5 seconds advances the limit:
+
+```text
+ON -> ON 1 -> ON 2 -> ... -> ON 9 -> ON
+```
+
+`ON` has no time limit. `ON N` restores normal sleep after N hours if the lid
+is still closed. Timing starts when the lid closes, not when you click. The
+next activation starts with the last selected limit.
+
+The same settings are available from the command line (case-insensitive):
 
 ```sh
-lidonce on       # enable the next close/open cycle
-lidonce status   # show off, armed, or closed
+lidonce on       # no time limit
+lidonce on1      # at most 1 hour after the lid closes
+lidonce on2      # at most 2 hours (through on9)
+lidonce status   # show off, armed [N], or closed [N]
 lidonce off      # restore normal sleep immediately
 lidonce open     # launch the menu-bar app
 ```

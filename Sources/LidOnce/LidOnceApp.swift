@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import SwiftUI
 
 private let ipcDirectory = FileManager.default.homeDirectoryForCurrentUser
   .appendingPathComponent("Library/Application Support/LidOnce")
@@ -49,14 +48,17 @@ final class PowerController {
 }
 
 @MainActor
-final class LidOnceModel: ObservableObject {
-  @Published private(set) var state: LidState = .off
-  @Published private(set) var errorMessage: String?
+final class LidOnceModel {
+  private(set) var state: LidState = .off
+  private(set) var errorMessage: String?
+  var onChange: (() -> Void)?
 
   private let power = PowerController()
   private var machine = LidStateMachine()
   private var timer: Timer?
   private var guardToken: URL?
+  private var closedAt: Date?
+  private var clickSelector = LidClickSelector()
 
   init() {
     try? FileManager.default.createDirectory(at: ipcDirectory, withIntermediateDirectories: true)
@@ -66,24 +68,32 @@ final class LidOnceModel: ObservableObject {
     }
   }
 
-  var label: String {
-    switch state {
-    case .off: return "L1"
-    case .armed: return "L1•"
-    case .closed: return "L1!"
-    }
-  }
-
   var statusText: String {
     switch state {
     case .off: return "Sleep allowed"
-    case .armed: return "Enabled — close the lid"
-    case .closed: return "Active — opening the lid will reset"
+    case .armed: return "\(machine.limit.displayText) — close the lid"
+    case .closed:
+      if let hours = machine.limit.hours {
+        return "ON \(hours) — sleeping after \(hours) hour\(hours == 1 ? "" : "s")"
+      }
+      return "ON — opening the lid will reset"
     }
   }
 
+  var limit: LidLimit { machine.limit }
+
   func toggle() {
-    state == .off ? turnOn() : turnOff()
+    let action = clickSelector.click(
+      at: Date().timeIntervalSinceReferenceDate,
+      isActive: state != .off,
+      currentLimit: machine.limit
+    )
+    switch action {
+    case .activate(let limit): turnOn(limit: limit)
+    case .setLimit(let limit): setLimit(limit)
+    case .turnOff:
+      turnOff()
+    }
   }
 
   func shutdown() {
@@ -91,23 +101,28 @@ final class LidOnceModel: ObservableObject {
     try? FileManager.default.removeItem(at: stateURL)
   }
 
-  private func turnOn() {
+  private func turnOn(limit: LidLimit) {
     do {
       try power.setSleepDisabled(true)
       try startCrashGuard()
-      machine.handle(.arm)
+      machine.handle(.arm(limit))
+      clickSelector.remember(limit)
       updateState()
       errorMessage = nil
+      onChange?()
     } catch {
       errorMessage = "Could not enable: \(error)"
+      onChange?()
     }
   }
 
   private func turnOff() {
     disarm()
     machine.handle(.cancel)
+    closedAt = nil
     updateState()
     errorMessage = nil
+    onChange?()
   }
 
   private func tick() {
@@ -116,32 +131,67 @@ final class LidOnceModel: ObservableObject {
     guard let closed = try? power.isLidClosed() else { return }
     if state == .armed && closed {
       machine.handle(.lidClosed)
+      closedAt = Date()
       updateState()
     } else if state == .closed && !closed {
       disarm()
       machine.handle(.lidOpened)
+      closedAt = nil
+      updateState()
+    } else if state == .closed, closed, hasExpired(at: Date()) {
+      disarm()
+      machine.handle(.timeout)
+      closedAt = nil
       updateState()
     }
+  }
+
+  private func setLimit(_ limit: LidLimit) {
+    machine.handle(.setLimit(limit))
+    clickSelector.remember(limit)
+    updateState()
+  }
+
+  private func hasExpired(at date: Date) -> Bool {
+    guard let hours = machine.limit.hours, let closedAt else { return false }
+    return date.timeIntervalSince(closedAt) >= Double(hours) * 3600
   }
 
   private func processCLICommand() {
     guard let command = try? String(contentsOf: commandURL, encoding: .utf8)
       .trimmingCharacters(in: .whitespacesAndNewlines) else { return }
     try? FileManager.default.removeItem(at: commandURL)
-    if command == "on" && state == .off {
-      turnOn()
+    if let limit = parseLimit(command) {
+      if state == .off {
+        turnOn(limit: limit)
+      } else {
+        setLimit(limit)
+      }
     } else if command == "off" && state != .off {
       turnOff()
     }
   }
 
+  private func parseLimit(_ command: String) -> LidLimit? {
+    let normalized = command.lowercased()
+    if normalized == "on" { return .unlimited }
+    guard normalized.count == 3,
+          normalized.hasPrefix("on"),
+          let value = Int(normalized.suffix(1)),
+          (1...9).contains(value)
+    else { return nil }
+    return .hours(value)
+  }
+
   private func updateState() {
     state = machine.state
     writeState()
+    onChange?()
   }
 
   private func writeState() {
-    try? (state.rawValue + "\n").write(to: stateURL, atomically: true, encoding: .utf8)
+    let suffix = machine.limit.hours.map { " \($0)" } ?? ""
+    try? (state.rawValue + suffix + "\n").write(to: stateURL, atomically: true, encoding: .utf8)
   }
 
   private func startCrashGuard() throws {
@@ -174,29 +224,90 @@ final class LidOnceModel: ObservableObject {
   }
 }
 
-@main
-struct LidOnceApp: App {
-  @StateObject private var model = LidOnceModel()
+private enum LidOnceIcon {
+  static func make(state: LidState, limit: LidLimit) -> NSImage {
+    let image = NSImage(size: NSSize(width: 26, height: 22), flipped: false) { _ in
+      if let path = Bundle.main.path(forResource: "lidonce-notebook@2x", ofType: "png"),
+         let notebook = NSImage(contentsOfFile: path) {
+        let height: CGFloat = 15
+        let width = height * notebook.size.width / notebook.size.height
+        notebook.draw(
+          in: NSRect(x: (26 - width) / 2, y: 0, width: width, height: height),
+          from: .zero,
+          operation: .sourceOver,
+          fraction: 1
+        )
+      }
 
-  var body: some Scene {
-    MenuBarExtra {
-      Text(model.statusText)
-      Button(model.state == .off ? "Enable next lid cycle" : "Turn off") {
-        model.toggle()
-      }
-      if let error = model.errorMessage {
-        Divider()
-        Text(error)
-      }
-      Divider()
-      Button("Quit LidOnce") {
-        model.shutdown()
-        NSApplication.shared.terminate(nil)
-      }
-      .keyboardShortcut("q")
-    } label: {
-      Text(model.label)
-        .font(.system(.body, design: .monospaced).weight(.semibold))
+      let text = state == .off ? "Zzz" : limit.displayText
+      let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .bold)
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: NSColor.black,
+      ]
+      let size = text.size(withAttributes: attributes)
+      text.draw(
+        at: NSPoint(x: 13 - size.width / 2, y: 13),
+        withAttributes: attributes
+      )
+      return true
     }
+    image.isTemplate = true
+    return image
+  }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+  private let model = LidOnceModel()
+  private var statusItem: NSStatusItem?
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    let item = NSStatusBar.system.statusItem(withLength: 28)
+    item.autosaveName = "LidOnce"
+    item.isVisible = true
+    item.button?.target = self
+    item.button?.action = #selector(toggle)
+    item.button?.sendAction(on: [.leftMouseUp])
+    item.button?.imagePosition = .imageOnly
+    statusItem = item
+    model.onChange = { [weak self] in self?.render() }
+    render()
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    model.shutdown()
+  }
+
+  @objc private func toggle() {
+    model.toggle()
+  }
+
+  private func render() {
+    let enabled = model.state != .off
+    statusItem?.button?.image = LidOnceIcon.make(state: model.state, limit: model.limit)
+    statusItem?.button?.toolTip = "LidOnce: \(model.statusText) — click to toggle"
+    statusItem?.button?.setAccessibilityTitle(
+      enabled ? "LidOnce on; click to turn off" : "LidOnce sleeping; click to turn on"
+    )
+    if let message = model.errorMessage {
+      let alert = NSAlert()
+      alert.messageText = "LidOnce could not change the sleep setting"
+      alert.informativeText = message
+      alert.alertStyle = .warning
+      alert.runModal()
+    }
+  }
+}
+
+@main
+enum LidOnceApplication {
+  @MainActor
+  static func main() {
+    let application = NSApplication.shared
+    let delegate = AppDelegate()
+    application.delegate = delegate
+    application.setActivationPolicy(.accessory)
+    application.run()
   }
 }

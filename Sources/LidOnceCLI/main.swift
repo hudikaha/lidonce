@@ -24,14 +24,26 @@ func send(_ command: String) {
 
 func waitForState(_ accepted: Set<String>) -> Bool {
   for _ in 0..<25 {
-    if accepted.contains(currentState()) { return true }
+    let phase = currentState().split(separator: " ").first.map(String.init) ?? "off"
+    if accepted.contains(phase) { return true }
+    Thread.sleep(forTimeInterval: 0.1)
+  }
+  return false
+}
+
+func waitForLimit(_ hours: Int?) -> Bool {
+  for _ in 0..<25 {
+    let fields = currentState().split(separator: " ")
+    let phase = fields.first.map(String.init) ?? "off"
+    let currentHours = fields.count > 1 ? Int(fields[1]) : nil
+    if ["armed", "closed"].contains(phase), currentHours == hours { return true }
     Thread.sleep(forTimeInterval: 0.1)
   }
   return false
 }
 
 func usage() -> Never {
-  FileHandle.standardError.write(Data("usage: lidonce [on|off|status|open]\n".utf8))
+  FileHandle.standardError.write(Data("usage: lidonce [on|on1|...|on9|off|status|open]\n".utf8))
   exit(2)
 }
 
@@ -56,16 +68,17 @@ func openApp() {
   }
 }
 
-let command = CommandLine.arguments.dropFirst().first ?? "status"
+let command = (CommandLine.arguments.dropFirst().first ?? "status").lowercased()
 switch command {
-case "on":
-  send("on")
-  if !waitForState(["armed", "closed"]) {
+case "on", "on1", "on2", "on3", "on4", "on5", "on6", "on7", "on8", "on9":
+  let hours = command == "on" ? nil : Int(command.suffix(1))
+  send(command)
+  if !waitForLimit(hours) {
     openApp()
     Thread.sleep(forTimeInterval: 0.5)
-    send("on")
-    guard waitForState(["armed", "closed"]) else {
-      FileHandle.standardError.write(Data("LidOnce did not accept the on command\n".utf8))
+    send(command)
+    guard waitForLimit(hours) else {
+      FileHandle.standardError.write(Data("LidOnce did not accept the \(command) command\n".utf8))
       exit(1)
     }
   }
