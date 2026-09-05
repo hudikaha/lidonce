@@ -34,8 +34,20 @@ make test
 make build
 ```
 
-`build/LidOnce.app`が生成されます。インストール処理と、対象を限定した権限設定は
-開発中で、まだリリース可能な状態ではありません。
+`build/LidOnce.app`が生成されます。開発版は次の手順でインストールできます。
+
+```sh
+make install
+./scripts/install-privilege.sh
+open ~/Applications/LidOnce.app
+```
+
+権限インストーラが許可するのは、`disablesleep`を有効・無効にするための正確な
+2つの`pmset`コマンドだけです。有効中にアプリが終了・異常終了した場合は、独立した
+監視プロセスが通常のスリープ設定へ戻します。
+
+`~/bin/lidonce`には`status`、`reset`、`open`があります。安全用の状態機械を
+迂回しないよう、CLI単独での有効化は意図的に実装していません。
 
 ## 安全上の注意
 
@@ -46,4 +58,3 @@ LidOnceは、処理を継続したまま短時間、目の届く範囲で移動�
 ## ライセンス
 
 [MIT](LICENSE)
-

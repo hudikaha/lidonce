@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var toggleItem: NSMenuItem!
   private var stateItem: NSMenuItem!
   private var timer: Timer?
+  private var guardToken: URL?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -69,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationWillTerminate(_ notification: Notification) {
     if machine.state != .off {
-      try? power.setSleepDisabled(false)
+      disarm()
     }
   }
 
@@ -77,9 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       if machine.state == .off {
         try power.setSleepDisabled(true)
+        try startCrashGuard()
         machine.handle(.arm)
       } else {
-        try power.setSleepDisabled(false)
+        disarm()
         machine.handle(.cancel)
       }
       render()
@@ -96,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         machine.handle(.lidClosed)
         render()
       } else if machine.state == .closed && !closed {
-        try power.setSleepDisabled(false)
+        disarm()
         machine.handle(.lidOpened)
         render()
       }
@@ -122,6 +124,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
+  private func startCrashGuard() throws {
+    let token = URL(fileURLWithPath: "/var/tmp/lidonce-\(getuid())-\(getpid())-\(UUID().uuidString)")
+    try Data().write(to: token, options: .atomic)
+    guard let guardPath = Bundle.main.path(forResource: "lidonce-guard", ofType: nil) else {
+      try? FileManager.default.removeItem(at: token)
+      try? power.setSleepDisabled(false)
+      throw PowerController.PowerError.commandFailed("crash guard was not found")
+    }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: guardPath)
+    process.arguments = [String(getpid()), token.path]
+    do {
+      try process.run()
+      guardToken = token
+    } catch {
+      try? FileManager.default.removeItem(at: token)
+      try? power.setSleepDisabled(false)
+      throw error
+    }
+  }
+
+  private func disarm() {
+    try? power.setSleepDisabled(false)
+    if let token = guardToken {
+      try? FileManager.default.removeItem(at: token)
+      guardToken = nil
+    }
+  }
+
   private func showError(_ error: Error) {
     let alert = NSAlert()
     alert.messageText = "LidOnce could not change the sleep setting"
@@ -136,4 +167,3 @@ let delegate = AppDelegate()
 application.delegate = delegate
 application.setActivationPolicy(.accessory)
 application.run()
-

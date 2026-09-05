@@ -34,8 +34,21 @@ make test
 make build
 ```
 
-The app is created at `build/LidOnce.app`. Installation and the narrowly
-scoped privilege rule are under development and are not yet release-ready.
+The app is created at `build/LidOnce.app`. To install a development build:
+
+```sh
+make install
+./scripts/install-privilege.sh
+open ~/Applications/LidOnce.app
+```
+
+The privilege installer allows only the exact `pmset` commands needed to turn
+`disablesleep` on and off. A separate guard process restores normal sleep if
+the app exits or crashes during an armed session.
+
+The CLI installed at `~/bin/lidonce` provides `status`, `reset`, and `open`.
+It intentionally cannot arm a session independently of the safety state
+machine in the menu-bar app.
 
 ## Safety
 
@@ -47,4 +60,3 @@ thermal cutoffs.
 ## License
 
 [MIT](LICENSE)
-
